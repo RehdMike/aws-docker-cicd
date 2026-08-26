@@ -28,3 +28,14 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t aws-docker-cicd:latest .
