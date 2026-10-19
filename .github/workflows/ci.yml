@@ -70,7 +70,7 @@ jobs:
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-    environment: production
+    environment: Production
 
     permissions:
       id-token: write
