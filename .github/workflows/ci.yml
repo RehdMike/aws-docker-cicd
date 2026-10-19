@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
   pull_request:
     branches:
       - main
@@ -11,6 +12,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,6 +33,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,17 +41,42 @@ jobs:
       - name: Build Docker image
         run: docker build -t aws-docker-cicd:latest .
 
-  deploy:
+  staging:
     runs-on: ubuntu-latest
     needs: docker
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
 
     permissions:
       id-token: write
       contents: read
 
     steps:
-   
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::104186810412:role/GithubActionsSSMDeploy
+          aws-region: eu-west-1
+
+      - name: Deploy to staging through SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids i-0e7cf31769a444887 \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["sudo -u deploy -H bash -lc '\''/home/deploy/deploy-staging.sh'\''"]' \
+            --comment "GitHub Actions staging deployment"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment: Production
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -61,4 +89,4 @@ jobs:
             --instance-ids i-0e7cf31769a444887 \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["sudo -u deploy -H bash -lc '\''/home/deploy/deploy.sh'\''"]' \
-            --comment "GitHub Actions deployment"
+            --comment "GitHub Actions production deployment"
